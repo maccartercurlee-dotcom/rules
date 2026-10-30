@@ -32,7 +32,7 @@ except json.JSONDecodeError:
     print("Ошибка: В базе лежит битый JSON. Используем дефолтный.")
     current_config = {}
 
-# Базовый шаблон (если в базе пусто, соберем с нуля)
+# Базовый шаблон (если в базе пусто)
 if not current_config:
     current_config = {
         "log": {"loglevel": "warning"},
@@ -46,22 +46,49 @@ if not current_config:
         "outbounds": [{"protocol": "freedom", "tag": "direct"}, {"protocol": "blackhole", "tag": "blocked"}]
     }
 
-# Прописываем идеальные рутинги
+# --- ВСТАВЛЯЕМ ТВОИ ПРАВИЛА ---
 current_config["routing"] = {
-    "domainStrategy": "IPIfNonMatch", # Сначала проверяем домены, потом IP
+    "domainStrategy": "IPIfNonMatch",
     "rules": [
-        # 1. Служебный API
-        {"type": "field", "inboundTag": ["api"], "outboundTag": "api"},
-        
-        # 2. Блокируем торренты (защита от абуза хостинга)
-        {"type": "field", "protocol": ["bittorrent"], "outboundTag": "blocked"},
-        
-        # 3. Блокируем рекламу и трекеры
-        {"type": "field", "domain": ["geosite:category-ads-all"], "outboundTag": "blocked"},
-        
-        # 4. Блокируем локальные сети (чтобы не текло)
-        {"type": "field", "ip": ["geoip:private"], "outboundTag": "blocked"},
-        {"type": "field", "domain": ["geosite:private"], "outboundTag": "blocked"}
+        {
+            "type": "field",
+            "inboundTag": ["api"],
+            "outboundTag": "api"
+        },
+        {
+            "type": "field",
+            "protocol": ["bittorrent"],
+            "outboundTag": "blocked"
+        },
+        {
+            "type": "field",
+            "domain": [
+                "geosite:category-ads-all",
+                "geosite:private",
+                "ext:geosite_RU.dat:category-ads-all",
+                "ext:geosite_IR.dat:malware",
+                "ext:geosite_IR.dat:phishing",
+                "ext:geosite_IR.dat:cryptominers",
+                "geosite:category-porn",
+                "ext:geosite_IR.dat:ir",
+                "regexp:.*\\.ir$",
+                "regexp:.*\\.xn--mgba3a4f16a$",
+                "ext:geosite_RU.dat:ru-available-only-inside",
+                "regexp:.*\\.ru$",
+                "regexp:.*\\.su$",
+                "regexp:.*\\.xn--p1ai$"
+            ],
+            "outboundTag": "blocked"
+        },
+        {
+            "type": "field",
+            "ip": [
+                "geoip:private",
+                "ext:geoip_RU.dat:ru",
+                "geoip:ua"
+            ],
+            "outboundTag": "blocked"
+        }
     ]
 }
 
@@ -70,7 +97,7 @@ new_json = json.dumps(current_config)
 c.execute("UPDATE settings SET value=? WHERE key='xrayTemplateConfig'", (new_json,))
 conn.commit()
 conn.close()
-print("\033[0;32mРутинги успешно обновлены! \033[0m")
+print("\033[0;32mТвои рутинги успешно обновлены! \033[0m")
 PYEOF
 
 echo -e "${YELLOW}Перезапускаем панель и Xray...${NC}"
