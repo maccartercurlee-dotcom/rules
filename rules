@@ -2,7 +2,7 @@
 set -e
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 
-echo -e "${GREEN}=== НАСТРОЙКА РУТИНГОВ (XRAY TEMPLATE) ===${NC}"
+echo -e "${GREEN}=== НАСТРОЙКА КАСТОМНЫХ РУТИНГОВ ===${NC}"
 
 if [ ! -f /etc/x-ui/x-ui.db ]; then
     echo -e "${RED}Ошибка: База данных /etc/x-ui/x-ui.db не найдена! Установлена ли панель?${NC}"
@@ -46,58 +46,65 @@ if not current_config:
         "outbounds": [{"protocol": "freedom", "tag": "direct"}, {"protocol": "blackhole", "tag": "blocked"}]
     }
 
-# --- ВСТАВЛЯЕМ ТВОИ ПРАВИЛА ---
+# --- ВСТАВЛЯЕМ ТВОЙ ТОЧНЫЙ СПИСОК ПРАВИЛ ИЗ ФАЙЛА ---
+my_rules = [
+  {
+    "type": "field",
+    "inboundTag": [
+      "api"
+    ],
+    "outboundTag": "api"
+  },
+  {
+    "type": "field",
+    "protocol": [
+      "bittorrent"
+    ],
+    "outboundTag": "blocked"
+  },
+  {
+    "type": "field",
+    "domain": [
+      "geosite:category-ads-all",
+      "geosite:private",
+      "ext:geosite_IR.dat:category-ads-all",
+      "ext:geosite_RU.dat:category-ads-all",
+      "ext:geosite_IR.dat:malware",
+      "ext:geosite_IR.dat:phishing",
+      "ext:geosite_IR.dat:cryptominers",
+      "geosite:category-porn",
+      "ext:geosite_IR.dat:ir",
+      "regexp:.*\\.ir$",
+      "regexp:.*\\.xn--mgba3a4f16a$",
+      "ext:geosite_RU.dat:ru-available-only-inside",
+      "regexp:.*\\.ru$",
+      "regexp:.*\\.su$",
+      "regexp:.*\\.xn--p1ai$"
+    ],
+    "outboundTag": "blocked"
+  },
+  {
+    "type": "field",
+    "ip": [
+      "geoip:private",
+      "ext:geoip_RU.dat:ru",
+      "geoip:ua"
+    ],
+    "outboundTag": "blocked"
+  }
+]
+
 current_config["routing"] = {
     "domainStrategy": "IPIfNonMatch",
-    "rules": [
-        {
-            "type": "field",
-            "inboundTag": ["api"],
-            "outboundTag": "api"
-        },
-        {
-            "type": "field",
-            "protocol": ["bittorrent"],
-            "outboundTag": "blocked"
-        },
-        {
-            "type": "field",
-            "domain": [
-                "geosite:category-ads-all",
-                "geosite:private",
-                "ext:geosite_RU.dat:category-ads-all",
-                "ext:geosite_IR.dat:malware",
-                "ext:geosite_IR.dat:phishing",
-                "ext:geosite_IR.dat:cryptominers",
-                "geosite:category-porn",
-                "ext:geosite_IR.dat:ir",
-                "regexp:.*\\.ir$",
-                "regexp:.*\\.xn--mgba3a4f16a$",
-                "ext:geosite_RU.dat:ru-available-only-inside",
-                "regexp:.*\\.ru$",
-                "regexp:.*\\.su$",
-                "regexp:.*\\.xn--p1ai$"
-            ],
-            "outboundTag": "blocked"
-        },
-        {
-            "type": "field",
-            "ip": [
-                "geoip:private",
-                "ext:geoip_RU.dat:ru",
-                "geoip:ua"
-            ],
-            "outboundTag": "blocked"
-        }
-    ]
+    "rules": my_rules
 }
 
 # Сохраняем обратно в БД
-new_json = json.dumps(current_config)
+new_json = json.dumps(current_config, ensure_ascii=False)
 c.execute("UPDATE settings SET value=? WHERE key='xrayTemplateConfig'", (new_json,))
 conn.commit()
 conn.close()
-print("\033[0;32mТвои рутинги успешно обновлены! \033[0m")
+print("\033[0;32mТвои кастомные рутинги успешно вшиты в базу! \033[0m")
 PYEOF
 
 echo -e "${YELLOW}Перезапускаем панель и Xray...${NC}"
